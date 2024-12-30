@@ -14,10 +14,11 @@ import (
 	"strings"
 	"time"
 
+	"speedtest/config"
+	"speedtest/database"
+	"speedtest/database/schema"
+
 	"github.com/go-chi/render"
-	"github.com/librespeed/speedtest/config"
-	"github.com/librespeed/speedtest/database"
-	"github.com/librespeed/speedtest/database/schema"
 
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"

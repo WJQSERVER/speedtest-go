@@ -7,11 +7,12 @@ import (
 	"github.com/go-chi/render"
 	log "github.com/sirupsen/logrus"
 
+	"speedtest/config"
+	"speedtest/database"
+	"speedtest/database/schema"
+
 	"github.com/gorilla/securecookie"
 	"github.com/gorilla/sessions"
-	"github.com/librespeed/speedtest/config"
-	"github.com/librespeed/speedtest/database"
-	"github.com/librespeed/speedtest/database/schema"
 )
 
 type StatsData struct {
@@ -23,12 +24,12 @@ type StatsData struct {
 var (
 	key   = []byte(securecookie.GenerateRandomKey(32))
 	store = sessions.NewCookieStore(key)
-	conf = config.LoadedConfig()
+	conf  = config.LoadedConfig()
 )
 
 func init() {
 	store.Options = &sessions.Options{
-		Path:     conf.BaseURL+"/stats",
+		Path:     conf.BaseURL + "/stats",
 		MaxAge:   3600 * 1, // 1 hour
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
