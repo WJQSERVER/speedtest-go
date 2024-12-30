@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -137,7 +136,7 @@ func pages(fs http.FileSystem, BaseURL string) http.HandlerFunc {
 
 // empty 处理对/empty的请求，丢弃请求体并返回成功的状态码
 func empty(w http.ResponseWriter, r *http.Request) {
-	_, err := io.Copy(ioutil.Discard, r.Body)
+	_, err := io.Copy(io.Discard, r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		return

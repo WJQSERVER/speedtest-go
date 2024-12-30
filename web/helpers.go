@@ -4,7 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -53,7 +53,7 @@ func getIPInfo(addr string) results.IPInfoResponse {
 		return ret
 	}
 
-	raw, err := ioutil.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Errorf("Error reading response from ipinfo.io: %s", err)
 		return ret
@@ -81,7 +81,7 @@ func SetServerLocation(conf *config.Config) {
 		log.Errorf("Error getting repsonse from ipinfo.io: %s", err)
 		return
 	}
-	raw, err := ioutil.ReadAll(resp.Body)
+	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Errorf("Error reading response from ipinfo.io: %s", err)
 		return
