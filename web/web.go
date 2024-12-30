@@ -37,6 +37,7 @@ var (
 	randomData = getRandomData(chunkSize)
 )
 
+// ListenAndServe 启动HTTP服务器并设置路由处理程序
 func ListenAndServe(conf *config.Config) error {
 	r := chi.NewRouter()
 	r.Use(middleware.RealIP)
@@ -97,6 +98,7 @@ func ListenAndServe(conf *config.Config) error {
 	return startListener(conf, r)
 }
 
+// listenProxyProtocol 启动一个监听Proxy Protocol的HTTP服务器
 func listenProxyProtocol(conf *config.Config, r *chi.Mux) {
 	if conf.ProxyProtocolPort != "0" {
 		addr := net.JoinHostPort(conf.BindAddress, conf.ProxyProtocolPort)
@@ -113,6 +115,7 @@ func listenProxyProtocol(conf *config.Config, r *chi.Mux) {
 	}
 }
 
+// pages 返回一个HTTP处理函数，用于提供静态文件服务
 func pages(fs http.FileSystem, BaseURL string) http.HandlerFunc {
 	var removeBaseURL *regexp.Regexp
 	if BaseURL != "" {
@@ -132,6 +135,7 @@ func pages(fs http.FileSystem, BaseURL string) http.HandlerFunc {
 	return fn
 }
 
+// empty 处理对/empty的请求，丢弃请求体并返回成功的状态码
 func empty(w http.ResponseWriter, r *http.Request) {
 	_, err := io.Copy(ioutil.Discard, r.Body)
 	if err != nil {
@@ -144,6 +148,7 @@ func empty(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// garbage 处理对/garbage的请求，返回指定数量的随机数据块
 func garbage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Description", "File Transfer")
 	w.Header().Set("Content-Type", "application/octet-stream")
@@ -177,6 +182,7 @@ func garbage(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// getIP 处理对/getIP的请求，返回客户端IP地址及其相关信息
 func getIP(w http.ResponseWriter, r *http.Request) {
 	var ret results.Result
 

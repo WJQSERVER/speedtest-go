@@ -14,6 +14,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
+// startListener 启动一个 HTTP 或 HTTPS 监听器，根据配置决定使用 systemd socket 激活或直接绑定地址和端口。
 func startListener(conf *config.Config, r *chi.Mux) error {
 	// See if systemd socket activation has been used when starting our process
 	listeners, err := activation.Listeners()
