@@ -52,8 +52,21 @@ func ListenAndServe(conf *config.Config) error {
 	r.Use(middleware.NoCache)
 	r.Use(middleware.Recoverer)
 
+	/*
+		var assetFS http.FileSystem
+		if fi, err := os.Stat(conf.AssetsPath); os.IsNotExist(err) || !fi.IsDir() {
+			log.Warnf("Configured asset path %s does not exist or is not a directory, using default assets", conf.AssetsPath)
+			sub, err := fs.Sub(defaultAssets, "assets")
+			if err != nil {
+				log.Fatalf("Failed when processing default assets: %s", err)
+			}
+			assetFS = http.FS(sub)
+		} else {
+			assetFS = justFilesFilesystem{fs: http.Dir(conf.AssetsPath), readDirBatchSize: 2}
+		}
+	*/
 	var assetFS http.FileSystem
-	if fi, err := os.Stat(conf.AssetsPath); os.IsNotExist(err) || !fi.IsDir() {
+	if fi, err := os.Stat(conf.AssetsPath); err != nil || !fi.IsDir() {
 		log.Warnf("Configured asset path %s does not exist or is not a directory, using default assets", conf.AssetsPath)
 		sub, err := fs.Sub(defaultAssets, "assets")
 		if err != nil {
@@ -61,7 +74,7 @@ func ListenAndServe(conf *config.Config) error {
 		}
 		assetFS = http.FS(sub)
 	} else {
-		assetFS = justFilesFilesystem{fs: http.Dir(conf.AssetsPath), readDirBatchSize: 2}
+		assetFS = justFilesFilesystem{fs: http.Dir(conf.AssetsPath)}
 	}
 
 	r.Get(conf.BaseURL+"/*", pages(assetFS, conf.BaseURL))
