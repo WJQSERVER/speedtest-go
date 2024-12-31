@@ -58,8 +58,22 @@ func ListenAndServe(conf *config.Config) error {
 		assetFS = justFilesFilesystem{fs: http.Dir(conf.AssetsPath)}
 	}
 
-	r.StaticFS(conf.BaseURL, assetFS)
+	/*
+		r.StaticFS(conf.BaseURL, assetFS)
 
+		r.POST(conf.BaseURL+"/results/telemetry", results.Record)
+		r.GET(conf.BaseURL+"/results", results.DrawPNG)
+		r.GET(conf.BaseURL+"/getIP", getIP)
+		r.GET(conf.BaseURL+"/garbage", garbage)
+		r.GET(conf.BaseURL+"/empty", empty)
+
+		// PHP frontend default values compatibility
+		r.GET(conf.BaseURL+"/empty.php", empty)
+		r.GET(conf.BaseURL+"/garbage.php", garbage)
+		r.GET(conf.BaseURL+"/getIP.php", getIP)
+		r.POST(conf.BaseURL+"/results/telemetry.php", results.Record)
+	*/
+	// 具体路由优先
 	r.POST(conf.BaseURL+"/results/telemetry", results.Record)
 	r.GET(conf.BaseURL+"/results", results.DrawPNG)
 	r.GET(conf.BaseURL+"/getIP", getIP)
@@ -71,6 +85,9 @@ func ListenAndServe(conf *config.Config) error {
 	r.GET(conf.BaseURL+"/garbage.php", garbage)
 	r.GET(conf.BaseURL+"/getIP.php", getIP)
 	r.POST(conf.BaseURL+"/results/telemetry.php", results.Record)
+
+	// 将静态文件路由放在最后
+	r.StaticFS(conf.BaseURL, assetFS)
 
 	go listenProxyProtocol(conf, r)
 
