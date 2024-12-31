@@ -6,7 +6,6 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
-	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -25,8 +24,10 @@ const (
 	chunkSize = 1048576
 )
 
-//go:embed assets
-var defaultAssets embed.FS
+var (
+	//go:embed pages/*
+	assetsFS embed.FS
+)
 
 var (
 	// generate random data for download test on start to minimize runtime overhead
@@ -46,53 +47,32 @@ func ListenAndServe(conf *config.Config) error {
 		AllowHeaders:    []string{"*"},
 	}))
 
-	var assetFS http.FileSystem
-	if fi, err := os.Stat(conf.AssetsPath); err != nil || !fi.IsDir() {
-		log.Warnf("Configured asset path %s does not exist or is not a directory, using default assets", conf.AssetsPath)
-		sub, err := fs.Sub(defaultAssets, "assets")
-		if err != nil {
-			log.Fatalf("Failed when processing default assets: %s", err)
-		}
-		assetFS = http.FS(sub)
-	} else {
-		assetFS = justFilesFilesystem{fs: http.Dir(conf.AssetsPath)}
-	}
+	backendUrl := "/backend"
+	r.POST(backendUrl+"/results/telemetry", results.Record)
+	r.GET(backendUrl+"/results", results.DrawPNG)
+	r.GET(backendUrl+"/getIP", getIP)
+	r.GET(backendUrl+"/garbage", garbage)
+	r.Any(backendUrl+"/empty", empty)
 
-	/*
-		r.StaticFS(conf.BaseURL, assetFS)
-
-		r.POST(conf.BaseURL+"/results/telemetry", results.Record)
-		r.GET(conf.BaseURL+"/results", results.DrawPNG)
-		r.GET(conf.BaseURL+"/getIP", getIP)
-		r.GET(conf.BaseURL+"/garbage", garbage)
-		r.GET(conf.BaseURL+"/empty", empty)
-
-		// PHP frontend default values compatibility
-		r.GET(conf.BaseURL+"/empty.php", empty)
-		r.GET(conf.BaseURL+"/garbage.php", garbage)
-		r.GET(conf.BaseURL+"/getIP.php", getIP)
-		r.POST(conf.BaseURL+"/results/telemetry.php", results.Record)
-	*/
-	// 具体路由优先
 	r.POST(conf.BaseURL+"/results/telemetry", results.Record)
 	r.GET(conf.BaseURL+"/results", results.DrawPNG)
 	r.GET(conf.BaseURL+"/getIP", getIP)
 	r.GET(conf.BaseURL+"/garbage", garbage)
-	r.GET(conf.BaseURL+"/empty", empty)
+	r.Any(conf.BaseURL+"/empty", empty)
 
 	// PHP frontend default values compatibility
-	r.GET(conf.BaseURL+"/empty.php", empty)
+	r.Any(conf.BaseURL+"/empty.php", empty)
 	r.GET(conf.BaseURL+"/garbage.php", garbage)
 	r.GET(conf.BaseURL+"/getIP.php", getIP)
 	r.POST(conf.BaseURL+"/results/telemetry.php", results.Record)
+	r.GET(conf.BaseURL+"/results.php", results.DrawPNG)
 
-	// 将静态文件路由放在最后
-	//r.StaticFS(conf.BaseURL, assetFS)
-	r.StaticFS(conf.BaseURL+"/index.html", assetFS)
-	r.StaticFS(conf.BaseURL+"/speedtest.js", assetFS)
-	r.StaticFS(conf.BaseURL+"/speedtest_worker.js", assetFS)
-	r.StaticFS(conf.BaseURL+"/inject.js", assetFS)
-	r.StaticFS(conf.BaseURL+"/", assetFS)
+	// assets 嵌入文件系统
+	pages, err := fs.Sub(assetsFS, "pages")
+	if err != nil {
+		log.Fatalf("Failed when processing pages: %s", err)
+	}
+	r.NoRoute(gin.WrapH(http.FileServer(http.FS(pages))))
 
 	go listenProxyProtocol(conf, r)
 
