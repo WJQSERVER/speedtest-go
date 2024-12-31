@@ -3,16 +3,7 @@
 
 package web
 
-import (
-	"crypto/tls"
-	"net"
-	"net/http"
-	"speedtest/config"
-
-	"github.com/coreos/go-systemd/v22/activation"
-	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
-)
+/*
 
 // startListener 启动一个 HTTP 或 HTTPS 监听器，根据配置决定使用 systemd socket 激活或直接绑定地址和端口。
 func startListener(conf *config.Config, r *gin.Engine) error {
@@ -60,3 +51,5 @@ func startListener(conf *config.Config, r *gin.Engine) error {
 	}
 	return s
 }
+
+*/

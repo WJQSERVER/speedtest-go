@@ -7,7 +7,7 @@ import (
 
 type Config struct {
 	BindAddress       string  `mapstructure:"bind_address"`
-	Port              string  `mapstructure:"listen_port"`
+	Port              int     `mapstructure:"listen_port"`
 	BaseURL           string  `mapstructure:"url_base"`
 	ProxyProtocolPort string  `mapstructure:"proxyprotocol_port"`
 	ServerLat         float64 `mapstructure:"server_lat"`

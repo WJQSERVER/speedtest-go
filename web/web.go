@@ -76,7 +76,8 @@ func ListenAndServe(conf *config.Config) error {
 
 	go listenProxyProtocol(conf, r)
 
-	return startListener(conf, r)
+	//return startListener(conf, r)
+	return GinRoute(conf, r)
 }
 
 // listenProxyProtocol 启动一个监听Proxy Protocol的HTTP服务器

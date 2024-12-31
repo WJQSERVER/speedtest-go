@@ -3,17 +3,7 @@
 
 package web
 
-import (
-	"crypto/tls"
-	"net"
-	"net/http"
-
-	"speedtest/config"
-
-	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
-)
-
+/*
 func startListener(conf *config.Config, r *gin.Engine) error {
 	var s error
 
@@ -42,3 +32,4 @@ func startListener(conf *config.Config, r *gin.Engine) error {
 
 	return s
 }
+*/
