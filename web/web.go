@@ -2,7 +2,6 @@ package web
 
 import (
 	"embed"
-	"encoding/json"
 	"io"
 	"io/fs"
 	"net"
@@ -12,10 +11,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
-	"github.com/go-chi/render"
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 	"github.com/pires/go-proxyproto"
 	log "github.com/sirupsen/logrus"
 
@@ -24,7 +21,7 @@ import (
 )
 
 const (
-	// chunk size is 1 mib
+	// chunk size is 1 MiB
 	chunkSize = 1048576
 )
 
@@ -38,33 +35,17 @@ var (
 
 // ListenAndServe 启动HTTP服务器并设置路由处理程序
 func ListenAndServe(conf *config.Config) error {
-	r := chi.NewRouter()
-	r.Use(middleware.RealIP)
-	r.Use(middleware.GetHead)
+	gin.SetMode(gin.DebugMode)
+	r := gin.Default()
+	r.UseH2C = true
 
-	cs := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"},
-		AllowedMethods: []string{"GET", "POST", "OPTIONS", "HEAD"},
-		AllowedHeaders: []string{"*"},
-	})
+	// CORS
+	r.Use(cors.New(cors.Config{
+		AllowAllOrigins: true,
+		AllowMethods:    []string{"GET", "POST", "OPTIONS", "HEAD"},
+		AllowHeaders:    []string{"*"},
+	}))
 
-	r.Use(cs.Handler)
-	r.Use(middleware.NoCache)
-	r.Use(middleware.Recoverer)
-
-	/*
-		var assetFS http.FileSystem
-		if fi, err := os.Stat(conf.AssetsPath); os.IsNotExist(err) || !fi.IsDir() {
-			log.Warnf("Configured asset path %s does not exist or is not a directory, using default assets", conf.AssetsPath)
-			sub, err := fs.Sub(defaultAssets, "assets")
-			if err != nil {
-				log.Fatalf("Failed when processing default assets: %s", err)
-			}
-			assetFS = http.FS(sub)
-		} else {
-			assetFS = justFilesFilesystem{fs: http.Dir(conf.AssetsPath), readDirBatchSize: 2}
-		}
-	*/
 	var assetFS http.FileSystem
 	if fi, err := os.Stat(conf.AssetsPath); err != nil || !fi.IsDir() {
 		log.Warnf("Configured asset path %s does not exist or is not a directory, using default assets", conf.AssetsPath)
@@ -77,33 +58,19 @@ func ListenAndServe(conf *config.Config) error {
 		assetFS = justFilesFilesystem{fs: http.Dir(conf.AssetsPath)}
 	}
 
-	r.Get(conf.BaseURL+"/*", pages(assetFS, conf.BaseURL))
-	r.HandleFunc(conf.BaseURL+"/empty", empty)
-	r.HandleFunc(conf.BaseURL+"/backend/empty", empty)
-	r.Get(conf.BaseURL+"/garbage", garbage)
-	r.Get(conf.BaseURL+"/backend/garbage", garbage)
-	r.Get(conf.BaseURL+"/getIP", getIP)
-	r.Get(conf.BaseURL+"/backend/getIP", getIP)
-	r.Get(conf.BaseURL+"/results", results.DrawPNG)
-	r.Get(conf.BaseURL+"/results/", results.DrawPNG)
-	r.Get(conf.BaseURL+"/backend/results", results.DrawPNG)
-	r.Get(conf.BaseURL+"/backend/results/", results.DrawPNG)
-	r.Post(conf.BaseURL+"/results/telemetry", results.Record)
-	r.Post(conf.BaseURL+"/backend/results/telemetry", results.Record)
-	r.HandleFunc(conf.BaseURL+"/stats", results.Stats)
-	r.HandleFunc(conf.BaseURL+"/backend/stats", results.Stats)
+	r.StaticFS(conf.BaseURL, assetFS)
+
+	r.POST(conf.BaseURL+"/results/telemetry", results.Record)
+	r.GET(conf.BaseURL+"/results", results.DrawPNG)
+	r.GET(conf.BaseURL+"/getIP", getIP)
+	r.GET(conf.BaseURL+"/garbage", garbage)
+	r.GET(conf.BaseURL+"/empty", empty)
 
 	// PHP frontend default values compatibility
-	r.HandleFunc(conf.BaseURL+"/empty.php", empty)
-	r.HandleFunc(conf.BaseURL+"/backend/empty.php", empty)
-	r.Get(conf.BaseURL+"/garbage.php", garbage)
-	r.Get(conf.BaseURL+"/backend/garbage.php", garbage)
-	r.Get(conf.BaseURL+"/getIP.php", getIP)
-	r.Get(conf.BaseURL+"/backend/getIP.php", getIP)
-	r.Post(conf.BaseURL+"/results/telemetry.php", results.Record)
-	r.Post(conf.BaseURL+"/backend/results/telemetry.php", results.Record)
-	r.HandleFunc(conf.BaseURL+"/stats.php", results.Stats)
-	r.HandleFunc(conf.BaseURL+"/backend/stats.php", results.Stats)
+	r.GET(conf.BaseURL+"/empty.php", empty)
+	r.GET(conf.BaseURL+"/garbage.php", garbage)
+	r.GET(conf.BaseURL+"/getIP.php", getIP)
+	r.POST(conf.BaseURL+"/results/telemetry.php", results.Record)
 
 	go listenProxyProtocol(conf, r)
 
@@ -111,7 +78,7 @@ func ListenAndServe(conf *config.Config) error {
 }
 
 // listenProxyProtocol 启动一个监听Proxy Protocol的HTTP服务器
-func listenProxyProtocol(conf *config.Config, r *chi.Mux) {
+func listenProxyProtocol(conf *config.Config, r *gin.Engine) {
 	if conf.ProxyProtocolPort != "0" {
 		addr := net.JoinHostPort(conf.BindAddress, conf.ProxyProtocolPort)
 		l, err := net.Listen("tcp", addr)
@@ -127,50 +94,27 @@ func listenProxyProtocol(conf *config.Config, r *chi.Mux) {
 	}
 }
 
-// pages 返回一个HTTP处理函数，用于提供静态文件服务
-func pages(fs http.FileSystem, BaseURL string) http.HandlerFunc {
-	var removeBaseURL *regexp.Regexp
-	if BaseURL != "" {
-		removeBaseURL = regexp.MustCompile("^" + BaseURL + "/")
-	}
-	fn := func(w http.ResponseWriter, r *http.Request) {
-		if BaseURL != "" {
-			r.URL.Path = removeBaseURL.ReplaceAllString(r.URL.Path, "/")
-		}
-		if r.RequestURI == "/" {
-			r.RequestURI = "/index.html"
-		}
-
-		http.FileServer(fs).ServeHTTP(w, r)
-	}
-
-	return fn
-}
-
 // empty 处理对/empty的请求，丢弃请求体并返回成功的状态码
-func empty(w http.ResponseWriter, r *http.Request) {
-	_, err := io.Copy(io.Discard, r.Body)
+func empty(c *gin.Context) {
+	_, err := io.Copy(io.Discard, c.Request.Body)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
+		c.Status(http.StatusBadRequest)
 		return
 	}
-	_ = r.Body.Close()
-
-	w.Header().Set("Connection", "keep-alive")
-	w.WriteHeader(http.StatusOK)
+	c.Status(http.StatusOK)
 }
 
 // garbage 处理对/garbage的请求，返回指定数量的随机数据块
-func garbage(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Description", "File Transfer")
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", "attachment; filename=random.dat")
-	w.Header().Set("Content-Transfer-Encoding", "binary")
+func garbage(c *gin.Context) {
+	c.Header("Content-Description", "File Transfer")
+	c.Header("Content-Type", "application/octet-stream")
+	c.Header("Content-Disposition", "attachment; filename=random.dat")
+	c.Header("Content-Transfer-Encoding", "binary")
 
 	// chunk size set to 4 by default
 	chunks := 4
 
-	ckSize := r.FormValue("ckSize")
+	ckSize := c.Query("ckSize")
 	if ckSize != "" {
 		i, err := strconv.ParseInt(ckSize, 10, 64)
 		if err != nil {
@@ -187,7 +131,7 @@ func garbage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for i := 0; i < chunks; i++ {
-		if _, err := w.Write(randomData); err != nil {
+		if _, err := c.Writer.Write(randomData); err != nil {
 			log.Errorf("Error writing back to client at chunk number %d: %s", i, err)
 			break
 		}
@@ -195,16 +139,10 @@ func garbage(w http.ResponseWriter, r *http.Request) {
 }
 
 // getIP 处理对/getIP的请求，返回客户端IP地址及其相关信息
-func getIP(w http.ResponseWriter, r *http.Request) {
+func getIP(c *gin.Context) {
 	var ret results.Result
 
-	clientIP := r.RemoteAddr
-	clientIP = strings.ReplaceAll(clientIP, "::ffff:", "")
-
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		clientIP = ip
-	}
+	clientIP := c.ClientIP()
 
 	isSpecialIP := true
 	switch {
@@ -229,15 +167,12 @@ func getIP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if isSpecialIP {
-		b, _ := json.Marshal(&ret)
-		if _, err := w.Write(b); err != nil {
-			log.Errorf("Error writing to client: %s", err)
-		}
+		c.JSON(200, ret)
 		return
 	}
 
-	getISPInfo := r.FormValue("isp") == "true"
-	distanceUnit := r.FormValue("distance")
+	getISPInfo := c.Query("isp") == "true"
+	distanceUnit := c.Query("distance")
 
 	ret.ProcessedString = clientIP
 
@@ -263,5 +198,5 @@ func getIP(w http.ResponseWriter, r *http.Request) {
 		ret.ProcessedString += " - " + isp
 	}
 
-	render.JSON(w, r, ret)
+	c.JSON(200, ret)
 }

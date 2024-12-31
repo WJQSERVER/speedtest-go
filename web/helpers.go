@@ -52,13 +52,13 @@ func getIPInfo(addr string) results.IPInfoResponse {
 		log.Errorf("Error getting response from ipinfo.io: %s", err)
 		return ret
 	}
+	defer resp.Body.Close()
 
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Errorf("Error reading response from ipinfo.io: %s", err)
 		return ret
 	}
-	defer resp.Body.Close()
 
 	if err := json.Unmarshal(raw, &ret); err != nil {
 		log.Errorf("Error parsing response from ipinfo.io: %s", err)
@@ -75,30 +75,34 @@ func SetServerLocation(conf *config.Config) {
 		return
 	}
 
-	var ret results.IPInfoResponse
 	resp, err := http.DefaultClient.Get(getIPInfoURL(""))
 	if err != nil {
-		log.Errorf("Error getting repsonse from ipinfo.io: %s", err)
+		log.Errorf("Error getting response from ipinfo.io: %s", err)
 		return
 	}
+	defer resp.Body.Close()
+
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Errorf("Error reading response from ipinfo.io: %s", err)
 		return
 	}
-	defer resp.Body.Close()
 
-	if err := json.Unmarshal(raw, &ret); err != nil {
+	var ipInfo results.IPInfoResponse
+	if err := json.Unmarshal(raw, &ipInfo); err != nil {
 		log.Errorf("Error parsing response from ipinfo.io: %s", err)
 		return
 	}
 
-	if ret.Location != "" {
-		serverCoord, err = parseLocationString(ret.Location)
-		if err != nil {
-			log.Errorf("Cannot get server coordinates: %s", err)
-			return
-		}
+	if ipInfo.Location == "" {
+		log.Errorf("Location not found in ipinfo.io response")
+		return
+	}
+
+	serverCoord, err = parseLocationString(ipInfo.Location)
+	if err != nil {
+		log.Errorf("Cannot get server coordinates: %s", err)
+		return
 	}
 
 	log.Infof("Fetched server coordinates: %.6f, %.6f", serverCoord.Lat, serverCoord.Lon)
@@ -122,7 +126,7 @@ func parseLocationString(location string) (haversine.Coord, error) {
 
 	lng, err := strconv.ParseFloat(parts[1], 64)
 	if err != nil {
-		log.Errorf("Error parsing longitude: %s", parts[0])
+		log.Errorf("Error parsing longitude: %s", parts[1])
 		return coord, err
 	}
 

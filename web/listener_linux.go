@@ -10,13 +10,13 @@ import (
 	"speedtest/config"
 
 	"github.com/coreos/go-systemd/v22/activation"
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
 // startListener 启动一个 HTTP 或 HTTPS 监听器，根据配置决定使用 systemd socket 激活或直接绑定地址和端口。
-func startListener(conf *config.Config, r *chi.Mux) error {
-	// See if systemd socket activation has been used when starting our process
+func startListener(conf *config.Config, r *gin.Engine) error {
+	// 检查是否使用 systemd socket 激活启动进程
 	listeners, err := activation.Listeners()
 	if err != nil {
 		log.Fatalf("Error whilst checking for systemd socket activation %s", err)
@@ -32,7 +32,7 @@ func startListener(conf *config.Config, r *chi.Mux) error {
 		// TLS and HTTP/2.
 		if conf.EnableTLS {
 			log.Info("Use TLS connection.")
-			if !(conf.EnableHTTP2) {
+			if !conf.EnableHTTP2 {
 				srv := &http.Server{
 					Addr:         addr,
 					Handler:      r,
@@ -51,12 +51,12 @@ func startListener(conf *config.Config, r *chi.Mux) error {
 	case 1:
 		log.Info("Starting backend server on inherited file descriptor via systemd socket activation")
 		if conf.BindAddress != "" || conf.Port != "" {
-			log.Errorf("Both an address/port (%s:%s) has been specificed in the config AND externally configured socket activation has been detected", conf.BindAddress, conf.Port)
+			log.Errorf("Both an address/port (%s:%s) has been specified in the config AND externally configured socket activation has been detected", conf.BindAddress, conf.Port)
 			log.Fatal(`Please deconfigure socket activation (e.g. in systemd unit files), or set both 'bind_address' and 'listen_port' to ''`)
 		}
 		s = http.Serve(listeners[0], r)
 	default:
-		log.Fatalf("Asked to listen on %d sockets via systemd activation.  Sorry we currently only support listening on 1 socket.", len(listeners))
+		log.Fatalf("Asked to listen on %d sockets via systemd activation. Sorry we currently only support listening on 1 socket.", len(listeners))
 	}
 	return s
 }

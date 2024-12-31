@@ -4,7 +4,7 @@ import (
 	"html/template"
 	"net/http"
 
-	"github.com/go-chi/render"
+	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 
 	"speedtest/config"
@@ -36,17 +36,17 @@ func init() {
 	}
 }
 
-func Stats(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+func Stats(c *gin.Context) {
+	c.Header("Content-Type", "text/html; charset=utf-8")
 	t, err := template.New("template").Parse(htmlTemplate)
 	if err != nil {
 		log.Errorf("Failed to parse template: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
 	if conf.DatabaseType == "none" {
-		render.PlainText(w, r, "Statistics are disabled")
+		c.String(http.StatusOK, "Statistics are disabled")
 		return
 	}
 
@@ -57,26 +57,26 @@ func Stats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !data.NoPassword {
-		op := r.FormValue("op")
-		session, _ := store.Get(r, "logged")
+		op := c.Query("op")
+		session, _ := store.Get(c.Request, "logged")
 		auth, ok := session.Values["authenticated"].(bool)
 
 		if auth && ok {
 			if op == "logout" {
 				session.Values["authenticated"] = false
 				session.Options.MaxAge = -1
-				session.Save(r, w)
-				http.Redirect(w, r, conf.BaseURL+"/stats", http.StatusTemporaryRedirect)
+				session.Save(c.Request, c.Writer)
+				c.Redirect(http.StatusTemporaryRedirect, conf.BaseURL+"/stats")
 			} else {
 				data.LoggedIn = true
 
-				id := r.FormValue("id")
+				id := c.Query("id")
 				switch id {
 				case "L100":
 					stats, err := database.DB.FetchLast100()
 					if err != nil {
 						log.Errorf("Error fetching data from database: %s", err)
-						w.WriteHeader(http.StatusInternalServerError)
+						c.String(http.StatusInternalServerError, "Internal Server Error")
 						return
 					}
 					data.Data = stats
@@ -85,7 +85,7 @@ func Stats(w http.ResponseWriter, r *http.Request) {
 					stat, err := database.DB.FetchByUUID(id)
 					if err != nil {
 						log.Errorf("Error fetching data from database: %s", err)
-						w.WriteHeader(http.StatusInternalServerError)
+						c.String(http.StatusInternalServerError, "Internal Server Error")
 						return
 					}
 					data.Data = append(data.Data, *stat)
@@ -93,22 +93,21 @@ func Stats(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			if op == "login" {
-				session, _ := store.Get(r, "logged")
-				password := r.FormValue("password")
+				password := c.PostForm("password")
 				if password == conf.StatsPassword {
 					session.Values["authenticated"] = true
-					session.Save(r, w)
-					http.Redirect(w, r, conf.BaseURL+"/stats", http.StatusTemporaryRedirect)
+					session.Save(c.Request, c.Writer)
+					c.Redirect(http.StatusTemporaryRedirect, conf.BaseURL+"/stats")
 				} else {
-					w.WriteHeader(http.StatusForbidden)
+					c.String(http.StatusForbidden, "Forbidden")
 				}
 			}
 		}
 	}
 
-	if err := t.Execute(w, data); err != nil {
+	if err := t.Execute(c.Writer, data); err != nil {
 		log.Errorf("Error executing template: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "Internal Server Error")
 	}
 }
 

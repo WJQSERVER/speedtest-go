@@ -18,8 +18,7 @@ import (
 	"speedtest/database"
 	"speedtest/database/schema"
 
-	"github.com/go-chi/render"
-
+	"github.com/gin-gonic/gin"
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
 	"github.com/oklog/ulid/v2"
@@ -28,8 +27,7 @@ import (
 )
 
 const (
-	watermark = "LibreSpeed"
-
+	watermark     = "LibreSpeed"
 	labelMS       = " ms"
 	labelMbps     = "Mbit/s"
 	labelPing     = "Ping"
@@ -45,11 +43,12 @@ var fontMediumBytes []byte
 var fontLightBytes []byte
 
 var (
-	ipv4Regex     = regexp.MustCompile(`(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)`)
+	ipv4Regex     = regexp.MustCompile(`(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)`)
 	ipv6Regex     = regexp.MustCompile(`(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4})?:)?((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9]))`)
-	hostnameRegex = regexp.MustCompile(`"hostname":"([^\\\\"]|\\\\")*"`)
+	hostnameRegex = regexp.MustCompile(`"hostname":"([^\\"]|\\")*"`)
 
-	fontLight, fontBold                                                                                                *truetype.Font
+	fontLight, fontBold *truetype.Font
+	// Font faces
 	pingJitterLabelFace, upDownLabelFace, pingJitterValueFace, upDownValueFace, smallLabelFace, ispFace, watermarkFace font.Face
 
 	canvasWidth, canvasHeight = 500, 286
@@ -88,8 +87,6 @@ type IPInfoResponse struct {
 }
 
 func Initialize(c *config.Config) {
-	// changed to use Noto Sans instead of OpenSans, due to issue:
-	// https://github.com/golang/freetype/issues/8
 	fLight, err := freetype.ParseFont(fontLightBytes)
 	if err != nil {
 		log.Fatalf("Error parsing NotoSansDisplay-Light font: %s", err)
@@ -145,24 +142,24 @@ func Initialize(c *config.Config) {
 	})
 }
 
-func Record(w http.ResponseWriter, r *http.Request) {
+func Record(c *gin.Context) {
 	conf := config.LoadedConfig()
 	if conf.DatabaseType == "none" {
-		render.PlainText(w, r, "Telemetry is disabled")
+		c.String(http.StatusOK, "Telemetry is disabled")
 		return
 	}
 
-	ipAddr, _, _ := net.SplitHostPort(r.RemoteAddr)
-	userAgent := r.UserAgent()
-	language := r.Header.Get("Accept-Language")
+	ipAddr, _, _ := net.SplitHostPort(c.Request.RemoteAddr)
+	userAgent := c.Request.UserAgent()
+	language := c.Request.Header.Get("Accept-Language")
 
-	ispInfo := r.FormValue("ispinfo")
-	download := r.FormValue("dl")
-	upload := r.FormValue("ul")
-	ping := r.FormValue("ping")
-	jitter := r.FormValue("jitter")
-	logs := r.FormValue("log")
-	extra := r.FormValue("extra")
+	ispInfo := c.PostForm("ispinfo")
+	download := c.PostForm("dl")
+	upload := c.PostForm("ul")
+	ping := c.PostForm("ping")
+	jitter := c.PostForm("jitter")
+	logs := c.PostForm("log")
+	extra := c.PostForm("extra")
 
 	if config.LoadedConfig().RedactIP {
 		ipAddr = "0.0.0.0"
@@ -198,35 +195,32 @@ func Record(w http.ResponseWriter, r *http.Request) {
 	err := database.DB.Insert(&record)
 	if err != nil {
 		log.Errorf("Error inserting into database: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
-	if _, err := w.Write([]byte("id " + uuid.String())); err != nil {
-		log.Errorf("Error writing ID to telemetry request: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
-	}
+	c.String(http.StatusOK, "id "+uuid.String())
 }
 
-func DrawPNG(w http.ResponseWriter, r *http.Request) {
+func DrawPNG(c *gin.Context) {
 	conf := config.LoadedConfig()
 
 	if conf.DatabaseType == "none" {
 		return
 	}
 
-	uuid := r.FormValue("id")
+	uuid := c.Query("id")
 	record, err := database.DB.FetchByUUID(uuid)
 	if err != nil {
 		log.Errorf("Error querying database: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
 	var result Result
 	if err := json.Unmarshal([]byte(record.ISPInfo), &result); err != nil {
 		log.Errorf("Error parsing ISP info: %s", err)
-		w.WriteHeader(http.StatusInternalServerError)
+		c.String(http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
@@ -365,9 +359,9 @@ func DrawPNG(w http.ResponseWriter, r *http.Request) {
 	}
 	drawer.DrawString("ISP: " + ispString)
 
-	w.Header().Set("Content-Disposition", "inline; filename="+uuid+".png")
-	w.Header().Set("Content-Type", "image/png")
-	if err := png.Encode(w, canvas); err != nil {
+	c.Header("Content-Disposition", "inline; filename="+uuid+".png")
+	c.Header("Content-Type", "image/png")
+	if err := png.Encode(c.Writer, canvas); err != nil {
 		log.Errorf("Failed to output image to HTTP client: %s", err)
 	}
 }

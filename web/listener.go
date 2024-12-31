@@ -10,11 +10,11 @@ import (
 
 	"speedtest/config"
 
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 )
 
-func startListener(conf *config.Config, r *chi.Mux) error {
+func startListener(conf *config.Config, r *gin.Engine) error {
 	var s error
 
 	addr := net.JoinHostPort(conf.BindAddress, conf.Port)
@@ -23,7 +23,7 @@ func startListener(conf *config.Config, r *chi.Mux) error {
 	// TLS and HTTP/2.
 	if conf.EnableTLS {
 		log.Info("Use TLS connection.")
-		if !(conf.EnableHTTP2) {
+		if !conf.EnableHTTP2 {
 			srv := &http.Server{
 				Addr:         addr,
 				Handler:      r,
