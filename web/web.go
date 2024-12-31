@@ -87,7 +87,12 @@ func ListenAndServe(conf *config.Config) error {
 	r.POST(conf.BaseURL+"/results/telemetry.php", results.Record)
 
 	// 将静态文件路由放在最后
-	r.StaticFS(conf.BaseURL, assetFS)
+	//r.StaticFS(conf.BaseURL, assetFS)
+	r.StaticFS(conf.BaseURL+"/index.html", assetFS)
+	r.StaticFS(conf.BaseURL+"/speedtest.js", assetFS)
+	r.StaticFS(conf.BaseURL+"/speedtest_worker.js", assetFS)
+	r.StaticFS(conf.BaseURL+"/inject.js", assetFS)
+	r.StaticFS(conf.BaseURL+"/", assetFS)
 
 	go listenProxyProtocol(conf, r)
 
