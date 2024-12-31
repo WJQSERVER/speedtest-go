@@ -4,7 +4,6 @@ go 1.23.4
 
 require (
 	github.com/breml/rootcerts v0.2.19
-	github.com/coreos/go-systemd/v22 v22.5.0
 	github.com/go-sql-driver/mysql v1.8.1
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/gorilla/securecookie v1.1.2
@@ -25,7 +24,7 @@ require (
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.7 // indirect
-	github.com/gin-contrib/sse v0.1.0 // indirect
+	github.com/gin-contrib/sse v1.0.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
 	github.com/go-playground/validator/v10 v10.23.0 // indirect
