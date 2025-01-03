@@ -58,6 +58,8 @@ jobs:
           export PATH: $PATH:/usr/local/go/bin     
   docker:
     runs-on: ubuntu-latest
+    # 等待build完成后再构建镜像
+    needs: build
     env:
       IMAGE_NAME: wjqserver/speedtest-go # 定义镜像名称变量
       DOCKERFILE: docker/dockerfile/dev/Dockerfile  # 定义 Dockerfile 路径变量
