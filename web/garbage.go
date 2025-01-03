@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	// 块尺寸为 5 MiB
-	chunkSize = 5 * 1024 * 1024
+	// 块尺寸为 1 MiB
+	chunkSize = 1 * 1024 * 1024
 )
 
 var (
