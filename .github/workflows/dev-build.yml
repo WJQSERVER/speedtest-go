@@ -60,8 +60,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       IMAGE_NAME: wjqserver/speedtest-go # 定义镜像名称变量
-      #DOCKERFILE: docker/dockerfile/release/Dockerfile  # 定义 Dockerfile 路径变量
-      DOCKERFILE: Dockerfile  # 定义 Dockerfile 路径变量
+      DOCKERFILE: docker/dockerfile/dev/Dockerfile  # 定义 Dockerfile 路径变量
+      #DOCKERFILE: Dockerfile  # 定义 Dockerfile 路径变量
 
     steps:
       - name: Checkout

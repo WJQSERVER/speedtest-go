@@ -1,9 +1,11 @@
 version: '3'
 services:
-  cert:
-    image: 'wjqserver/cert:latest'
+  speedtest-go:
+    image: 'wjqserver/speedtest-go:dev'
     restart: always
     volumes:
-      - './cert/config:/data/cert/config'
-      - './cert/log:/data/cert/log'
-      - './cert/output:/data/cert/output'
+      - './speedtest-go/config:/data/speedtest-go/config'
+      - './speedtest-go/log:/data/speedtest-go/log'
+      - './speedtest-go/db:/data/speedtest-go/db'
+    ports:
+      - '8989:8989'
