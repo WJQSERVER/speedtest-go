@@ -1,9 +1,7 @@
 speedtest.db
-speedtest-backend
 dist/
 
 *.bak
 demo
 *.log
 *.bak
-dev
