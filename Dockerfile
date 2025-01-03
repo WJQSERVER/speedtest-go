@@ -10,9 +10,9 @@ FROM alpine:latest
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=build_base /build/speedtest ./
-COPY settings.toml ./
+COPY config.toml ./
 
 USER nobody
 EXPOSE 8989
 
-CMD ["./speedtest"]
+CMD ["./speedtest", "-cfg", "./config.toml"]

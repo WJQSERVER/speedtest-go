@@ -1,12 +1,12 @@
-name: Build
+name: Dev Build
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - 'main'
+      - 'dev'
     paths:
-      - 'VERSION'
+      - 'DEV-VERSION'
 
 jobs:
   build:
@@ -53,6 +53,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ env.VERSION }}
           allowUpdates: true
+          prerelease: true
         env:
           export PATH: $PATH:/usr/local/go/bin     
   docker:
