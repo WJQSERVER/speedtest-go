@@ -25,8 +25,8 @@ func garbage(c *gin.Context) {
 	c.Header("Content-Disposition", "attachment; filename=random.dat")
 	c.Header("Content-Transfer-Encoding", "binary")
 
-	// 默认chunk数量为4
-	chunks := 4
+	// 默认chunk数量为8
+	chunks := 8
 
 	// 从查询参数中获取ckSize
 	ckSize := c.Query("ckSize")
