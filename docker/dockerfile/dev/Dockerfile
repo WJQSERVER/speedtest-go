@@ -11,12 +11,16 @@ ARG TARGETPLATFORM
 RUN apk add --no-cache wget curl
 
 # 创建目录
+RUN mkdir -p /data/${APPLICATION}
+RUN mkdir -p /data/${APPLICATION}/config
+RUN mkdir -p /data/${APPLICATION}/logs
+RUN mkdir -p /data/${APPLICATION}/db
 
 # 后端
-RUN VERSION=$(curl -s https://raw.githubusercontent.com/${USER}/${REPO}/main/DEV-VERSION) && \
+RUN VERSION=$(curl -s https://raw.githubusercontent.com/${USER}/${REPO}/dev/DEV-VERSION) && \
     wget -O /data/${APPLICATION}/${APPLICATION} https://github.com/${USER}/${REPO}/releases/download/$VERSION/${APPLICATION}-${TARGETOS}-${TARGETARCH}
-RUN wget -O /data/${APPLICATION}/config.toml https://raw.githubusercontent.com/${USER}/${REPO}/main/config/config.toml
-RUN wget -O /usr/local/bin/init.sh https://raw.githubusercontent.com/${USER}/${REPO}/main/docker/dockerfile/dev/init.sh
+RUN wget -O /data/${APPLICATION}/config.toml https://raw.githubusercontent.com/${USER}/${REPO}/dev/config/config.toml
+RUN wget -O /usr/local/bin/init.sh https://raw.githubusercontent.com/${USER}/${REPO}/dev/docker/dockerfile/dev/init.sh
 
 # 权限
 RUN chmod +x /data/${APPLICATION}/${APPLICATION}

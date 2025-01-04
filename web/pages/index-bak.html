@@ -3,8 +3,8 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, user-scalable=no" />
 <meta charset="UTF-8" />
-<link rel="icon" href="favicon.ico" type="image/x-icon" >
-<title>SpeedTest-EX</title>
+<link rel="shortcut icon" href="favicon.ico">
+<title>网速测试</title>
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;700&display=swap');
     
@@ -12,24 +12,20 @@
         margin: 0;
         padding: 0;
         font-family: 'Noto Sans SC', sans-serif;
-        background-color: #e8eaed; /* 更现代的浅灰背景 */
+        background-color: #f0f2f5;
         color: #333;
     }
     
     .container {
-        max-width: 1200px;
-        margin: 2.5% auto;
+        max-width: 800px;
+        margin: 0 auto;
         padding: 20px;
-        background: rgba(255, 255, 255, 0.9); /* 半透明白色背景 */
-        border-radius: 20px; /* 圆角 */
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15); /* 柔和阴影 */
     }
     
     h1 {
         text-align: center;
-        color: #075199;
+        color: #1890ff;
         margin-bottom: 30px;
-        font-size: 28px;
     }
     
     #startStopBtn {
@@ -37,20 +33,17 @@
         width: 200px;
         height: 50px;
         margin: 0 auto 30px;
-        background-color: #0050a5;
+        background-color: #1890ff;
         color: white;
         border: none;
         border-radius: 25px;
         font-size: 18px;
-        font-weight: bold;
         cursor: pointer;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* 按钮阴影 */
+        transition: background-color 0.3s;
     }
     
     #startStopBtn:hover {
-        background-color: #8caec6;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3); /* 按钮悬停阴影 */
+        background-color: #40a9ff;
     }
     
     #startStopBtn.running {
@@ -66,38 +59,28 @@
         justify-content: space-around;
         flex-wrap: wrap;
         margin-bottom: 30px;
-        gap: 20px; /* 增加间距 */
     }
     
     .test-box {
-        background-color: rgba(255, 255, 255, 0.8); /* 半透明效果 */
-        border-radius: 15px; /* 圆角 */
+        background-color: white;
+        border-radius: 10px;
         padding: 20px;
         margin: 10px;
         text-align: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* 柔和阴影 */
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
         flex: 1 1 200px;
-        max-width: 220px; /* 限制宽度 */
-        transition: transform 0.3s ease, box-shadow 0.3s ease; /* 添加交互动画 */
-    }
-    
-    .test-box:hover {
-        transform: translateY(-5px); /* 悬浮效果 */
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
     }
     
     .test-name {
         font-size: 18px;
         margin-bottom: 10px;
-        color: #075199;
-        font-weight: bold;
+        color: #1890ff;
     }
     
     .meter-text {
-        font-size: 28px;
+        font-size: 24px;
         font-weight: bold;
         margin: 10px 0;
-        color: #333;
     }
     
     .unit {
@@ -119,7 +102,7 @@
         left: 0;
         right: 0;
         bottom: 0;
-        background-color: rgba(0, 0, 0, 0.8);
+        background-color: rgba(0,0,0,0.8);
         z-index: 1000;
         overflow-y: auto;
     }
@@ -129,8 +112,7 @@
         margin: 50px auto;
         padding: 20px;
         max-width: 600px;
-        border-radius: 20px; /* 圆角 */
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); /* 阴影 */
+        border-radius: 10px;
     }
     
     .privacy-link {
@@ -141,22 +123,13 @@
     .privacy-link a {
         color: #1890ff;
         text-decoration: none;
-        font-weight: bold;
-    }
-    
-    .privacy-link a:hover {
-        text-decoration: underline;
-    }
-    
-    button {
-        font-family: 'Noto Sans SC', sans-serif;
     }
 </style>
 <script type="text/javascript" src="speedtest.js"></script>
 </head>
 <body>
 <div class="container">
-    <h1>SpeedTest-EX</h1>
+    <h1>网速测试</h1>
     <button id="startStopBtn"></button>
     <div class="test-area">
         <div class="test-box">
@@ -183,10 +156,49 @@
     <div id="ipArea">
         <span id="ip"></span>
     </div>
-    <div style="text-align: center; margin-top: 20px;">
-        <a href="/chart.html" style="font-size: 14px; color: #075199; text-decoration: none;">查看图表</a>
+    <div class="privacy-link">
+        <a href="#" onclick="document.getElementById('privacyPolicy').style.display='block'">隐私政策</a>
     </div>
+</div>
 
+<div id="privacyPolicy">
+    <div class="privacy-content">
+        <h2>隐私政策</h2>
+        <p>本HTML5速度测试服务器配置了遥测功能。</p>
+        <h4>我们收集的数据</h4>
+        <p>
+            在测试结束时，我们会收集并存储以下数据：
+            <ul>
+                <li>测试ID</li>
+                <li>测试时间</li>
+                <li>测试结果（下载和上传速度、ping和抖动）</li>
+                <li>IP地址</li>
+                <li>ISP信息</li>
+                <li>大致位置（根据IP地址推断，非GPS）</li>
+                <li>用户代理和浏览器区域设置</li>
+                <li>测试日志（不包含个人信息）</li>
+            </ul>
+        </p>
+        <h4>我们如何使用数据</h4>
+        <p>
+            通过本服务收集的数据用于：
+            <ul>
+                <li>允许分享测试结果（可分享的图像用于论坛等）</li>
+                <li>改进为您提供的服务（例如，检测我们这边的问题）</li>
+            </ul>
+            不会向第三方披露个人信息。
+        </p>
+        <h4>您的同意</h4>
+        <p>
+            开始测试即表示您同意本隐私政策的条款。
+        </p>
+        <h4>数据删除</h4>
+        <p>
+            如果您想删除您的信息，您需要提供测试ID或您的IP地址。这是识别您数据的唯一方式，没有这些信息我们将无法满足您的请求。<br/><br/>
+            所有删除请求请联系此电子邮件地址：<a href="mailto:example@example.com">example@example.com</a>。
+        </p>
+        <button onclick="document.getElementById('privacyPolicy').style.display='none'">关闭</button>
+    </div>
 </div>
 
 <script>
@@ -233,3 +245,4 @@ setTimeout(function(){initUI();},100);
 </script>
 </body>
 </html>
+

@@ -2,70 +2,25 @@ package results
 
 import (
 	_ "embed"
-	"encoding/json"
-	"image"
-	"image/color"
-	"image/draw"
-	"image/png"
 	"math/rand"
 	"net"
 	"net/http"
-	"regexp"
-	"strings"
 	"time"
 
 	"speedtest/config"
 	"speedtest/database"
 	"speedtest/database/schema"
 
+	"github.com/WJQSERVER-STUDIO/go-utils/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/golang/freetype"
-	"github.com/golang/freetype/truetype"
 	"github.com/oklog/ulid/v2"
-	log "github.com/sirupsen/logrus"
-	"golang.org/x/image/font"
 )
-
-const (
-	watermark     = "LibreSpeed"
-	labelMS       = " ms"
-	labelMbps     = "Mbit/s"
-	labelPing     = "Ping"
-	labelJitter   = "Jitter"
-	labelDownload = "Download"
-	labelUpload   = "Upload"
-)
-
-//go:embed fonts/NotoSansDisplay-Medium.ttf
-var fontMediumBytes []byte
-
-//go:embed fonts/NotoSansDisplay-Light.ttf
-var fontLightBytes []byte
 
 var (
-	ipv4Regex     = regexp.MustCompile(`(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)`)
-	ipv6Regex     = regexp.MustCompile(`(([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4})?:)?((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1?[0-9])?[0-9])\.){3}(25[0-5]|(2[0-4]|1?[0-9])?[0-9]))`)
-	hostnameRegex = regexp.MustCompile(`"hostname":"([^\\"]|\\")*"`)
-
-	fontLight, fontBold *truetype.Font
-	// Font faces
-	pingJitterLabelFace, upDownLabelFace, pingJitterValueFace, upDownValueFace, smallLabelFace, ispFace, watermarkFace font.Face
-
-	canvasWidth, canvasHeight = 500, 286
-	dpi                       = 150.0
-	topOffset                 = 10
-	middleOffset              = topOffset + 5
-	bottomOffset              = middleOffset - 10
-	ispOffset                 = bottomOffset + 8
-	colorLabel                = image.NewUniform(color.RGBA{40, 40, 40, 255})
-	colorDownload             = image.NewUniform(color.RGBA{96, 96, 170, 255})
-	colorUpload               = image.NewUniform(color.RGBA{96, 96, 96, 255})
-	colorPing                 = image.NewUniform(color.RGBA{170, 96, 96, 255})
-	colorJitter               = image.NewUniform(color.RGBA{170, 96, 96, 255})
-	colorMeasure              = image.NewUniform(color.RGBA{40, 40, 40, 255})
-	colorISP                  = image.NewUniform(color.RGBA{40, 40, 40, 255})
-	colorWatermark            = image.NewUniform(color.RGBA{160, 160, 160, 255})
-	colorSeparator            = image.NewUniform(color.RGBA{192, 192, 192, 255})
+	logw       = logger.Logw
+	logInfo    = logger.LogInfo
+	logWarning = logger.LogWarning
+	logError   = logger.LogError
 )
 
 type Result struct {
@@ -74,77 +29,19 @@ type Result struct {
 }
 
 type IPInfoResponse struct {
-	IP           string `json:"ip"`
-	Hostname     string `json:"hostname"`
-	City         string `json:"city"`
-	Region       string `json:"region"`
-	Country      string `json:"country"`
-	Location     string `json:"loc"`
-	Organization string `json:"org"`
-	Postal       string `json:"postal"`
-	Timezone     string `json:"timezone"`
-	Readme       string `json:"readme"`
+	IP            string `json:"ip"`             // IP address (IPv4 or IPv6)
+	ASN           string `json:"asn"`            // Autonomous System Number
+	Domain        string `json:"domain"`         // Domain name
+	ISP           string `json:"isp"`            // Internet Service Provider
+	ContinentCode string `json:"continent_code"` // Continent code
+	ContinentName string `json:"continent_name"` // Continent name
+	CountryCode   string `json:"country_code"`
+	CountryName   string `json:"country_name"`
+	UserAgent     string `json:"user_agent"`
 }
 
-func Initialize(c *config.Config) {
-	fLight, err := freetype.ParseFont(fontLightBytes)
-	if err != nil {
-		log.Fatalf("Error parsing NotoSansDisplay-Light font: %s", err)
-	}
-	fontLight = fLight
-
-	fMedium, err := freetype.ParseFont(fontMediumBytes)
-	if err != nil {
-		log.Fatalf("Error parsing NotoSansDisplay-Medium font: %s", err)
-	}
-	fontBold = fMedium
-
-	pingJitterLabelFace = truetype.NewFace(fontBold, &truetype.Options{
-		Size:    12,
-		DPI:     dpi,
-		Hinting: font.HintingFull,
-	})
-
-	upDownLabelFace = truetype.NewFace(fontBold, &truetype.Options{
-		Size:    14,
-		DPI:     dpi,
-		Hinting: font.HintingFull,
-	})
-
-	pingJitterValueFace = truetype.NewFace(fontLight, &truetype.Options{
-		Size:    16,
-		DPI:     dpi,
-		Hinting: font.HintingFull,
-	})
-
-	upDownValueFace = truetype.NewFace(fontLight, &truetype.Options{
-		Size:    18,
-		DPI:     dpi,
-		Hinting: font.HintingFull,
-	})
-
-	smallLabelFace = truetype.NewFace(fontBold, &truetype.Options{
-		Size:    10,
-		DPI:     dpi,
-		Hinting: font.HintingFull,
-	})
-
-	ispFace = truetype.NewFace(fontBold, &truetype.Options{
-		Size:    8,
-		DPI:     dpi,
-		Hinting: font.HintingFull,
-	})
-
-	watermarkFace = truetype.NewFace(fontLight, &truetype.Options{
-		Size:    6,
-		DPI:     dpi,
-		Hinting: font.HintingFull,
-	})
-}
-
-func Record(c *gin.Context) {
-	conf := config.LoadedConfig()
-	if conf.DatabaseType == "none" {
+func Record(c *gin.Context, cfg *config.Config) {
+	if cfg.Database.Model == "none" {
 		c.String(http.StatusOK, "Telemetry is disabled")
 		return
 	}
@@ -154,22 +51,13 @@ func Record(c *gin.Context) {
 	language := c.Request.Header.Get("Accept-Language")
 
 	ispInfo := c.PostForm("ispinfo")
+	//logInfo("debug > result > ispInfo: %s", ispInfo)
 	download := c.PostForm("dl")
 	upload := c.PostForm("ul")
 	ping := c.PostForm("ping")
 	jitter := c.PostForm("jitter")
 	logs := c.PostForm("log")
 	extra := c.PostForm("extra")
-
-	if config.LoadedConfig().RedactIP {
-		ipAddr = "0.0.0.0"
-		ipv4Regex.ReplaceAllString(ispInfo, "0.0.0.0")
-		ipv4Regex.ReplaceAllString(logs, "0.0.0.0")
-		ipv6Regex.ReplaceAllString(ispInfo, "0.0.0.0")
-		ipv6Regex.ReplaceAllString(logs, "0.0.0.0")
-		hostnameRegex.ReplaceAllString(ispInfo, `"hostname":"REDACTED"`)
-		hostnameRegex.ReplaceAllString(logs, `"hostname":"REDACTED"`)
-	}
 
 	var record schema.TelemetryData
 	record.IPAddress = ipAddr
@@ -192,176 +80,12 @@ func Record(c *gin.Context) {
 	uuid := ulid.MustNew(ulid.Timestamp(t), entropy)
 	record.UUID = uuid.String()
 
-	err := database.DB.Insert(&record)
+	err := database.DB.SaveTelemetry(&record)
 	if err != nil {
-		log.Errorf("Error inserting into database: %s", err)
+		logError("Error inserting into database: %s", err)
 		c.String(http.StatusInternalServerError, "Internal Server Error")
 		return
 	}
 
 	c.String(http.StatusOK, "id "+uuid.String())
-}
-
-func DrawPNG(c *gin.Context) {
-	conf := config.LoadedConfig()
-
-	if conf.DatabaseType == "none" {
-		return
-	}
-
-	uuid := c.Query("id")
-	record, err := database.DB.FetchByUUID(uuid)
-	if err != nil {
-		log.Errorf("Error querying database: %s", err)
-		c.String(http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
-
-	var result Result
-	if err := json.Unmarshal([]byte(record.ISPInfo), &result); err != nil {
-		log.Errorf("Error parsing ISP info: %s", err)
-		c.String(http.StatusInternalServerError, "Internal Server Error")
-		return
-	}
-
-	canvas := image.NewRGBA(image.Rectangle{
-		Min: image.Point{},
-		Max: image.Point{
-			X: canvasWidth,
-			Y: canvasHeight,
-		},
-	})
-
-	draw.Draw(canvas, canvas.Bounds(), image.NewUniform(color.White), image.Point{}, draw.Src)
-
-	drawer := &font.Drawer{
-		Dst:  canvas,
-		Face: pingJitterLabelFace,
-	}
-
-	drawer.Src = colorLabel
-
-	// labels
-	p := drawer.MeasureString(labelPing)
-	x := canvasWidth/4 - p.Round()/2
-	drawer.Dot = freetype.Pt(x, canvasHeight/10+topOffset)
-	drawer.DrawString(labelPing)
-
-	p = drawer.MeasureString(labelJitter)
-	x = canvasWidth*3/4 - p.Round()/2
-	drawer.Dot = freetype.Pt(x, canvasHeight/10+topOffset)
-	drawer.DrawString(labelJitter)
-
-	drawer.Face = upDownLabelFace
-	p = drawer.MeasureString(labelDownload)
-	x = canvasWidth/4 - p.Round()/2
-	drawer.Dot = freetype.Pt(x, canvasHeight/2-middleOffset)
-	drawer.DrawString(labelDownload)
-
-	p = drawer.MeasureString(labelUpload)
-	x = canvasWidth*3/4 - p.Round()/2
-	drawer.Dot = freetype.Pt(x, canvasHeight/2-middleOffset)
-	drawer.DrawString(labelUpload)
-
-	drawer.Face = smallLabelFace
-	drawer.Src = colorMeasure
-	p = drawer.MeasureString(labelMbps)
-	x = canvasWidth/4 - p.Round()/2
-	drawer.Dot = freetype.Pt(x, canvasHeight*8/10-middleOffset)
-	drawer.DrawString(labelMbps)
-
-	p = drawer.MeasureString(labelMbps)
-	x = canvasWidth*3/4 - p.Round()/2
-	drawer.Dot = freetype.Pt(x, canvasHeight*8/10-middleOffset)
-	drawer.DrawString(labelMbps)
-
-	msLength := drawer.MeasureString(labelMS)
-
-	// ping value
-	drawer.Face = pingJitterValueFace
-	pingValue := strings.Split(record.Ping, ".")[0]
-	p = drawer.MeasureString(pingValue)
-
-	x = canvasWidth/4 - (p.Round()+msLength.Round())/2
-	drawer.Dot = freetype.Pt(x, canvasHeight*11/40)
-	drawer.Src = colorPing
-	drawer.DrawString(pingValue)
-	x = x + p.Round()
-	drawer.Dot = freetype.Pt(x, canvasHeight*11/40)
-	drawer.Src = colorMeasure
-	drawer.Face = smallLabelFace
-	drawer.DrawString(labelMS)
-
-	// jitter value
-	drawer.Face = pingJitterValueFace
-	p = drawer.MeasureString(record.Jitter)
-	x = canvasWidth*3/4 - (p.Round()+msLength.Round())/2
-	drawer.Dot = freetype.Pt(x, canvasHeight*11/40)
-	drawer.Src = colorJitter
-	drawer.DrawString(record.Jitter)
-	drawer.Face = smallLabelFace
-	x = x + p.Round()
-	drawer.Dot = freetype.Pt(x, canvasHeight*11/40)
-	drawer.Src = colorMeasure
-	drawer.DrawString(labelMS)
-
-	// download value
-	drawer.Face = upDownValueFace
-	p = drawer.MeasureString(record.Download)
-	x = canvasWidth/4 - p.Round()/2
-	drawer.Dot = freetype.Pt(x, canvasHeight*27/40-middleOffset)
-	drawer.Src = colorDownload
-	drawer.DrawString(record.Download)
-
-	// upload value
-	p = drawer.MeasureString(record.Upload)
-	x = canvasWidth*3/4 - p.Round()/2
-	drawer.Dot = freetype.Pt(x, canvasHeight*27/40-middleOffset)
-	drawer.Src = colorUpload
-	drawer.DrawString(record.Upload)
-
-	// watermark
-	ctx := freetype.NewContext()
-	ctx.SetFont(fontLight)
-	ctx.SetFontSize(14)
-	ctx.SetDPI(dpi)
-	ctx.SetHinting(font.HintingFull)
-
-	drawer.Face = watermarkFace
-	drawer.Src = colorWatermark
-	p = drawer.MeasureString(watermark)
-	x = canvasWidth - p.Round() - 5
-	drawer.Dot = freetype.Pt(x, canvasHeight-bottomOffset)
-	drawer.DrawString(watermark)
-
-	// timestamp
-	ts := record.Timestamp.Format("2006-01-02 15:04:05")
-	p = drawer.MeasureString(ts)
-	drawer.Dot = freetype.Pt(8, canvasHeight-bottomOffset)
-	drawer.DrawString(ts)
-
-	// separator
-	for i := canvas.Bounds().Min.X; i < canvas.Bounds().Max.X; i++ {
-		canvas.Set(i, canvasHeight-ctx.PointToFixed(6).Round()-bottomOffset, colorSeparator)
-	}
-
-	// ISP info
-	drawer.Face = ispFace
-	drawer.Src = colorISP
-	drawer.Dot = freetype.Pt(8, canvasHeight-ctx.PointToFixed(6).Round()-ispOffset)
-	var ispString string
-	if strings.Contains(result.ProcessedString, "-") {
-		str := strings.SplitN(result.ProcessedString, "-", 2)
-		if strings.Contains(str[1], "(") {
-			str = strings.SplitN(str[1], "(", 2)
-		}
-		ispString = str[0]
-	}
-	drawer.DrawString("ISP: " + ispString)
-
-	c.Header("Content-Disposition", "inline; filename="+uuid+".png")
-	c.Header("Content-Type", "image/png")
-	if err := png.Encode(c.Writer, canvas); err != nil {
-		log.Errorf("Failed to output image to HTTP client: %s", err)
-	}
 }
